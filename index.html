@@ -1,0 +1,75 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>有休申請</title>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <h1>有休申請システム</h1>
+  <p id="status">読み込み中...</p>
+  <p id="debug" style="font-size:12px; color:#666;"></p>
+  <button id="go" style="display:none; padding:15px; font-size:16px; background:#06C755; color:white; border:none; border-radius:8px; width:100%;">申請フォームへ進む</button>
+
+  <script>
+    const LIFF_ID = "2009622120-r89P0ZN2";
+    const FORM_URL = "https://c-nexco-chuoh.form.kintoneapp.com/public/04a2097ceab4e457173a7837d29fdb8677c129cf0c04da28ab73d811bd4d2030";
+    const SALT = "cnexco-yukyu-2026-xK9mP2qR";
+
+    const status = document.getElementById("status");
+    const debug = document.getElementById("debug");
+    let hashedId = null;
+
+    function log(msg) {
+      debug.innerHTML += msg + "<br>";
+    }
+
+    async function hashUserId(userId) {
+      const data = new TextEncoder().encode(userId + SALT);
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      const array = Array.from(new Uint8Array(hash));
+      return array.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function main() {
+      try {
+        log("1. LIFF初期化開始...");
+        await liff.init({ liffId: LIFF_ID });
+        log("2. LIFF初期化成功");
+
+        if (!liff.isLoggedIn()) {
+          log("3. ログイン実行...");
+          liff.login();
+          return;
+        }
+
+        log("3. プロフィール取得中...");
+        const profile = await liff.getProfile();
+        log("4. 名前: " + profile.displayName);
+
+        hashedId = await hashUserId(profile.userId);
+        log("5. ハッシュ化ID: " + hashedId);
+
+        const url = FORM_URL + "?line_user_id=" + hashedId;
+        log("6. 遷移先URL: " + url);
+
+        status.textContent = profile.displayName + "さん、こんにちは";
+        document.getElementById("go").style.display = "block";
+
+      } catch (err) {
+        status.textContent = "エラー発生";
+        log("エラー名: " + err.name);
+        log("エラー内容: " + err.message);
+      }
+    }
+
+    document.getElementById("go").addEventListener("click", () => {
+      const url = FORM_URL + "?line_user_id=" + hashedId;
+      window.location.href = url;
+    });
+
+    main();
+  </script>
+</body>
+</html>
